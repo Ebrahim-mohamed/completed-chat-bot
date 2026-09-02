@@ -13,19 +13,19 @@ const METRICS = [
 ];
 
 const TOP_SEARCHES = [
-  { query: "نادى المعادى الرياضى واليخت", count: 142 },
-  { query: "خصم كارنيه", count: 98 },
-  { query: "مواعيد العمل", count: 76 },
-  { query: "الأسعار", count: 61 },
-  { query: "فروع القاهرة", count: 54 },
+  { query: "أشعة مقطعية", count: 142 },
+  { query: "أسعار الرنين المغناطيسي", count: 98 },
+  { query: "مواعيد فرع كايرو سكان", count: 76 },
+  { query: "أشعة على العمود الفقري", count: 61 },
+  { query: "تحليل دم شامل", count: 54 },
 ];
 
 const KNOWLEDGE_GAPS = [
-  { query: "توصيل خارج القاهرة", count: 23 },
-  { query: "استرجاع المبلغ", count: 19 },
-  { query: "تجديد الاشتراك اونلاين", count: 14 },
-  { query: "الدفع بالتقسيط", count: 11 },
-  { query: "فرع الاسكندرية", count: 8 },
+  { query: "أشعة رباعية الأبعاد للحامل", count: 23 },
+  { query: "تقسيط تكلفة الرنين المغناطيسي", count: 19 },
+  { query: "استلام النتيجة اونلاين", count: 14 },
+  { query: "تغطية التأمين الطبي", count: 11 },
+  { query: "فرع تكنو سكان الاسكندرية", count: 8 },
 ];
 
 export default async function ReportsPage() {
@@ -45,14 +45,10 @@ export default async function ReportsPage() {
       <AppNav userName={session.name} role={session.role} />
 
       <div className="mx-auto w-full max-w-5xl px-4 py-8">
-        <h1 className="mb-1 text-xl font-semibold text-textPrimary">
+        <h1 className="mb-8 text-xl font-semibold text-textPrimary">
           Reports
         </h1>
-        <p className="mb-6 text-sm text-textMuted">
-          Placeholder data below — wire this up to your real reports
-          endpoint when it's ready.
-        </p>
-
+        
         {/* 4 metric boxes */}
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {METRICS.map((metric) => (
