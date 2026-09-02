@@ -1,8 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { AppUser } from "./types";
 
-// Hardcoded on purpose — no env vars, no database.
-// Seed accounts (plaintext passwords shown for reference; only the hash is stored):
 //   admin  / Admin@12345
 //   it     / It@12345
 //   agent1 / Agent@12345
