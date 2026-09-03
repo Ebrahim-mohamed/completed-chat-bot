@@ -13,9 +13,9 @@ import type { UserRole } from "@/lib/auth/types";
 const SESSION_STORAGE_KEY = "chat_session_id";
 
 const BRAND_FILTER_OPTIONS: BrandFilterOption[] = [
-  { label: "Cairo Scan", value: "cairo_scan" },
-  { label: "Techno Scan", value: "techno_scan" },
-  { label: "Both", value: "both" },
+  { label: "Cairo Scan", value: "cairoscan" },
+  { label: "Techno Scan", value: "technoscan" },
+  { label: "Both", value: "all" },
 ];
 
 export interface ChatUser {
@@ -31,7 +31,7 @@ export default function ChatClient({ user }: { user: ChatUser }) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [brandFilter, setBrandFilter] = useState<BrandFilter>("both");
+  const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
 
   const scrollRef = useRef<HTMLDivElement>(null);
 

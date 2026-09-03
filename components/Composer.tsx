@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 
-export type BrandFilter = "cairo_scan" | "techno_scan" | "both";
+export type BrandFilter = "cairoscan" | "technoscan" | "all";
 
 export interface BrandFilterOption {
   label: string;
