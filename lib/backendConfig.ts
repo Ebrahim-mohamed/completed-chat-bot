@@ -6,4 +6,4 @@ export const CHAT_ENDPOINT = `${BACKEND_BASE_URL}/api/whatsapp/chat`;
 
 // ASSUMPTION: you never gave me the exact "update" path, so this mirrors the
 // chat endpoint's shape. Change this if your real update endpoint differs.
-export const UPDATE_ENDPOINT = `${BACKEND_BASE_URL}/api/whatsapp/update`;
+export const UPDATE_ENDPOINT = `${BACKEND_BASE_URL}/api/sync`;
