@@ -18,6 +18,7 @@ export default async function Home() {
         username: session.username,
         role: session.role,
         client_id: session.client_id,
+        user_id: session.user_id,
       }}
     />
   );

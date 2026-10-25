@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
 
   const token = await signSession({
     sub: user.id,
+    user_id: user.user_id,
     username: user.username,
     role: user.role,
     client_id: user.client_id,
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({
     user: {
       id: user.id,
+      user_id: user.user_id,
       username: user.username,
       role: user.role,
       client_id: user.client_id,

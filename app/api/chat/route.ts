@@ -3,6 +3,8 @@ import { verifySession, SESSION_COOKIE_NAME } from "@/lib/auth/jwt";
 import { CHAT_ENDPOINT, ADMIN_API_KEY } from "@/lib/backendConfig";
 import type { ChatRequestBody, ChatResponseBody } from "@/lib/types";
 
+const VALID_AUDIENCES = ["agent", "patient"];
+
 interface BackendChatResponse {
   client_id?: string;
   session_id: string;
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { message, session_id, brand_filter } = body;
+  const { message, session_id, brand_filter, user_id, audience } = body;
 
   if (!message || typeof message !== "string") {
     return NextResponse.json(
@@ -46,6 +48,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (typeof user_id !== "number" || !Number.isInteger(user_id)) {
+    return NextResponse.json(
+      { error: "'user_id' is required and must be a number." },
+      { status: 400 }
+    );
+  }
+
+  // The browser sends user_id, but it must match the logged-in session so one
+  // user can't act as another.
+  if (user_id !== session.user_id) {
+    return NextResponse.json(
+      { error: "'user_id' does not match the logged-in user." },
+      { status: 403 }
+    );
+  }
+
+  // audience defaults to "agent" when it is not sent.
+  if (
+    audience !== undefined &&
+    (typeof audience !== "string" || !VALID_AUDIENCES.includes(audience))
+  ) {
+    return NextResponse.json(
+      { error: "'audience' must be agent or patient." },
+      { status: 400 }
+    );
+  }
+  const forwardedAudience = audience ?? "agent";
+
   // "both" means no filter — omit the field entirely in that case.
   const forwardedBrandFilter =
     brand_filter && brand_filter !== "both" ? brand_filter : undefined;
@@ -60,6 +90,8 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         session_id,
         message,
+        user_id,
+        audience: forwardedAudience,
         // client_id comes from the verified session, never trusted from the
         // browser, so it can't be spoofed by editing the request body.
         client_id: session.client_id,

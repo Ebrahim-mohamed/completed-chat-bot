@@ -2,6 +2,7 @@ export type UserRole = "admin" | "it" | "agent";
 
 export interface AppUser {
   id: string;
+  user_id: number;
   username: string;
   passwordHash: string;
   role: UserRole;
@@ -11,6 +12,7 @@ export interface AppUser {
 
 export interface SessionPayload {
   sub: string;
+  user_id: number;
   username: string;
   role: UserRole;
   client_id: string;

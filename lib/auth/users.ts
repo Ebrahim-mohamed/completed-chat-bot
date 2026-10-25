@@ -8,6 +8,7 @@ function seedUsers(): AppUser[] {
   return [
     {
       id: "u-admin-1",
+      user_id: 1,
       username: "admin",
       passwordHash:
         "$2a$10$DTLqqjbsPsfIbaQZ7qYjduxEmAOk8jTCsJ9mmFk/HJcZJZGF0nlJa",
@@ -17,6 +18,7 @@ function seedUsers(): AppUser[] {
     },
     {
       id: "u-it-1",
+      user_id: 2,
       username: "it",
       passwordHash:
         "$2a$10$YTzBNTGV/ti1mjMJLkXmHOheHvkMI4xn79NnRxsasAYUcfqvQNiDC",
@@ -26,6 +28,7 @@ function seedUsers(): AppUser[] {
     },
     {
       id: "u-agent-1",
+      user_id: 3,
       username: "agent1",
       passwordHash:
         "$2a$10$AQKM68r/gNCJSKAk4b0nZeatQ8zTy4/vu36C5jyLwtODuLmfAYeJS",
@@ -64,8 +67,11 @@ export function createAgent(
   if (findUserByUsername(username)) {
     throw new Error("That username is already taken.");
   }
+  // Next free numeric user_id (highest existing + 1).
+  const nextUserId = users.reduce((max, u) => Math.max(max, u.user_id), 0) + 1;
   const newAgent: AppUser = {
     id: `u-agent-${Date.now()}`,
+    user_id: nextUserId,
     username,
     passwordHash: bcrypt.hashSync(password, 10),
     role: "agent",
