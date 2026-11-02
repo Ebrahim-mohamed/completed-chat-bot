@@ -100,6 +100,15 @@ export default function Composer({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Keep the cursor in the input: focus it whenever it becomes usable again
+  // (after a reply arrives, after a chat opens, after a recording ends, and on
+  // first load). A disabled textarea loses focus, so this brings it back.
+  useEffect(() => {
+    if (!disabled && !isRecording) {
+      textareaRef.current?.focus({ preventScroll: true });
+    }
+  }, [disabled, isRecording]);
+
   // Auto-stop (and send) when the maximum duration is reached.
   useEffect(() => {
     if (isRecording && seconds >= MAX_RECORDING_SECONDS) {
