@@ -36,6 +36,46 @@ export interface VoiceResponseBody {
   [key: string]: unknown;
 }
 
+// ---------------------------------------------------------------------------
+// Chat history
+// ---------------------------------------------------------------------------
+
+export interface ThreadSummary {
+  thread_id: string;
+  title: string;
+  audience: Audience | null;
+  last_message_preview: string | null;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreadListResponse {
+  items: ThreadSummary[];
+  next_cursor: string | null;
+}
+
+export interface ThreadMessage {
+  id: string;
+  role: ChatRole;
+  content: string;
+  created_at: string;
+}
+
+// A numbered menu the last reply left open.
+export interface PendingMenu {
+  kind: string | null;
+  dimension: string | null;
+  options: string[];
+}
+
+export interface ThreadDetailResponse {
+  thread: ThreadSummary;
+  messages: ThreadMessage[];
+  has_more: boolean;
+  pending: PendingMenu | null;
+}
+
 export interface UpdateRequestBody {
   session_id: string;
 }

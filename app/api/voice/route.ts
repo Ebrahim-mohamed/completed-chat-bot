@@ -156,6 +156,18 @@ export async function POST(req: NextRequest) {
       const text = await res.text().catch(() => "");
       console.error(`[/api/voice] backend returned ${res.status}: ${text}`);
 
+      if (res.status === 403) {
+        return NextResponse.json(
+          { error: "This chat belongs to another user." },
+          { status: 403 }
+        );
+      }
+      if (res.status === 409) {
+        return NextResponse.json(
+          { error: "This chat was deleted; start a new one." },
+          { status: 409 }
+        );
+      }
       if (res.status === 413) {
         return NextResponse.json(
           { error: "Voice note is too large (max 16 MB)." },

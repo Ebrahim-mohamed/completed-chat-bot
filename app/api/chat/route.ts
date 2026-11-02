@@ -103,6 +103,21 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[/api/chat] backend returned ${res.status}: ${text}`);
+
+      // The UI starts a new chat on these two.
+      if (res.status === 403) {
+        return NextResponse.json(
+          { error: "This chat belongs to another user." },
+          { status: 403 }
+        );
+      }
+      if (res.status === 409) {
+        return NextResponse.json(
+          { error: "This chat was deleted; start a new one." },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Failed to reach the chat backend." },
         { status: 502 }

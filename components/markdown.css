@@ -1,0 +1,167 @@
+/* Markdown styling for assistant replies (Arabic + English, RTL/LTR mixed). */
+
+.md-content {
+  text-align: start;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+/* Each block follows its own first strong character. */
+.md-content p,
+.md-content li,
+.md-content h1,
+.md-content h2,
+.md-content h3,
+.md-content h4,
+.md-content blockquote,
+.md-content th,
+.md-content td {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+.md-content p {
+  margin: 0.6em 0;
+}
+
+.md-content > :first-child {
+  margin-top: 0;
+}
+
+.md-content > :last-child {
+  margin-bottom: 0;
+}
+
+.md-content strong {
+  font-weight: 700;
+}
+
+.md-content em {
+  font-style: italic;
+}
+
+/* Headings */
+.md-content h1,
+.md-content h2,
+.md-content h3,
+.md-content h4 {
+  font-weight: 700;
+  line-height: 1.6;
+  margin: 0.9em 0 0.4em;
+}
+
+.md-content h1 {
+  font-size: 1.3em;
+}
+
+.md-content h2 {
+  font-size: 1.2em;
+}
+
+.md-content h3 {
+  font-size: 1.1em;
+}
+
+.md-content h4 {
+  font-size: 1em;
+}
+
+/* Lists: logical padding so numbers/bullets sit on the right in Arabic. */
+.md-content ul,
+.md-content ol {
+  margin: 0.6em 0;
+  padding-inline-start: 1.5em;
+  list-style-position: outside;
+  text-align: start;
+}
+
+.md-content ul {
+  list-style-type: disc;
+}
+
+.md-content ol {
+  list-style-type: decimal;
+}
+
+.md-content li {
+  margin: 0.25em 0;
+}
+
+.md-content li > p {
+  margin: 0.25em 0;
+}
+
+.md-content ul ul,
+.md-content ol ol,
+.md-content ul ol,
+.md-content ol ul {
+  margin: 0.25em 0;
+}
+
+/* Blockquote: border on the start side. */
+.md-content blockquote {
+  margin: 0.6em 0;
+  padding-inline-start: 0.9em;
+  border-inline-start: 3px solid rgba(128, 128, 128, 0.55);
+  opacity: 0.9;
+}
+
+.md-content hr {
+  margin: 0.9em 0;
+  border: 0;
+  border-top: 1px solid rgba(128, 128, 128, 0.4);
+}
+
+.md-content a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Code is always left-to-right. */
+.md-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: rgba(128, 128, 128, 0.18);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.md-content pre {
+  margin: 0.6em 0;
+  padding: 0.75em 1em;
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 8px;
+  overflow-x: auto;
+  direction: ltr;
+  text-align: start;
+  line-height: 1.5;
+}
+
+.md-content pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.875em;
+}
+
+/* Tables (remark-gfm) */
+.md-content .md-table-wrap {
+  margin: 0.6em 0;
+  overflow-x: auto;
+}
+
+.md-content table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.md-content th,
+.md-content td {
+  padding: 0.4em 0.7em;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+}
+
+.md-content th {
+  font-weight: 700;
+}
