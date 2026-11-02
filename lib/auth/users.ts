@@ -39,23 +39,45 @@ function seedUsers(): AppUser[] {
   ];
 }
 
-// Module-level in-memory store: persists for the life of the running server
-// process (fine for "no DB, hardcoded for now" — it resets on server restart
-// or redeploy since nothing is written to disk).
-const users: AppUser[] = seedUsers();
+interface UserStore {
+  users: AppUser[];
+  // Only ever goes up, so a user_id is never reused while the server runs.
+  nextUserId: number;
+}
+
+// The store lives on globalThis so every route (login, agents, ...) shares
+// the same list, even if Next.js loads this file more than once.
+// Still in memory: it resets when the server restarts.
+const globalForUsers = globalThis as unknown as {
+  __appUserStore?: UserStore;
+};
+
+function getStore(): UserStore {
+  let store = globalForUsers.__appUserStore;
+
+  if (!store) {
+    const seeded = seedUsers();
+    store = {
+      users: seeded,
+      nextUserId: seeded.reduce((max, u) => Math.max(max, u.user_id), 0) + 1,
+    };
+    globalForUsers.__appUserStore = store;
+  }
+
+  return store;
+}
 
 export function findUserByUsername(username: string): AppUser | undefined {
-  return users.find(
-    (u) => u.username.toLowerCase() === username.toLowerCase()
-  );
+  const wanted = username.trim().toLowerCase();
+  return getStore().users.find((u) => u.username.toLowerCase() === wanted);
 }
 
 export function findUserById(id: string): AppUser | undefined {
-  return users.find((u) => u.id === id);
+  return getStore().users.find((u) => u.id === id);
 }
 
 export function listAgents(): AppUser[] {
-  return users.filter((u) => u.role === "agent");
+  return getStore().users.filter((u) => u.role === "agent");
 }
 
 export function createAgent(
@@ -64,21 +86,26 @@ export function createAgent(
   displayName: string,
   client_id: string
 ): AppUser {
-  if (findUserByUsername(username)) {
+  const store = getStore();
+  const cleanUsername = username.trim();
+
+  if (findUserByUsername(cleanUsername)) {
     throw new Error("That username is already taken.");
   }
-  // Next free numeric user_id (highest existing + 1).
-  const nextUserId = users.reduce((max, u) => Math.max(max, u.user_id), 0) + 1;
+
+  const userId = store.nextUserId++;
+
   const newAgent: AppUser = {
-    id: `u-agent-${Date.now()}`,
-    user_id: nextUserId,
-    username,
+    id: `u-agent-${userId}-${Date.now()}`,
+    user_id: userId,
+    username: cleanUsername,
     passwordHash: bcrypt.hashSync(password, 10),
     role: "agent",
-    client_id,
-    displayName,
+    client_id: client_id.trim(),
+    displayName: displayName.trim(),
   };
-  users.push(newAgent);
+
+  store.users.push(newAgent);
   return newAgent;
 }
 
@@ -88,7 +115,7 @@ export function updateAgent(
     password?: string;
   }
 ): AppUser {
-  const user = users.find((u) => u.id === id && u.role === "agent");
+  const user = getStore().users.find((u) => u.id === id && u.role === "agent");
   if (!user) throw new Error("Agent not found.");
   if (updates.displayName) user.displayName = updates.displayName;
   if (updates.client_id) user.client_id = updates.client_id;
@@ -97,7 +124,8 @@ export function updateAgent(
 }
 
 export function deleteAgent(id: string): void {
-  const idx = users.findIndex((u) => u.id === id && u.role === "agent");
+  const store = getStore();
+  const idx = store.users.findIndex((u) => u.id === id && u.role === "agent");
   if (idx === -1) throw new Error("Agent not found.");
-  users.splice(idx, 1);
+  store.users.splice(idx, 1);
 }
