@@ -29,7 +29,7 @@ export default function AppNav({ userName, role, extra }: AppNavProps) {
 
   const links = [
     { href: "/", label: "Chat", show: true },
-    { href: "/reports", label: "Reports", show: role === "admin" || role === "it" },
+    { href: "/reports", label: "Reports", show: role === "it" },
     { href: "/agents", label: "Agents", show: role === "it" },
   ];
 

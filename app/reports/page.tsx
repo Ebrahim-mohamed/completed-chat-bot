@@ -1,47 +1,71 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifySession, SESSION_COOKIE_NAME } from "@/lib/auth/jwt";
-import { BACKEND_BASE_URL, ADMIN_API_KEY } from "@/lib/backendConfig";
+import { ADMIN_API_KEY, ANALYTICS_DASHBOARD_ENDPOINT } from "@/lib/backendConfig";
+import { listAgents } from "@/lib/auth/users";
 import AppNav from "@/components/AppNav";
+import UserHistory from "@/components/UserHistory";
+import type {
+  AnalyticsItem,
+  DashboardAnalytics,
+  Traffic,
+} from "@/lib/analyticsTypes";
 
 export const dynamic = "force-dynamic";
 
-interface AnalyticsTopic {
-  topic: string;
-  count: number;
+type SearchParamValue = string | string[] | undefined;
+type SearchParamsRecord = Record<string, SearchParamValue>;
+
+interface ReportsPageProps {
+  searchParams?: Promise<SearchParamsRecord> | SearchParamsRecord;
 }
 
-interface DashboardAnalytics {
-  period: {
-    period_from: string;
-    period_to: string;
+interface DashboardQuery {
+  dateFrom: string;
+  dateTo: string;
+  traffic: Traffic;
+  limit: number;
+}
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DEFAULT_LIMIT = 10;
+
+function firstValue(value: SearchParamValue): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function parseQuery(raw: SearchParamsRecord): DashboardQuery {
+  const dateFrom = firstValue(raw.date_from);
+  const dateTo = firstValue(raw.date_to);
+  const traffic = firstValue(raw.traffic);
+  const limit = Number(firstValue(raw.limit));
+
+  return {
+    dateFrom: DATE_PATTERN.test(dateFrom) ? dateFrom : "",
+    dateTo: DATE_PATTERN.test(dateTo) ? dateTo : "",
+    traffic: traffic === "users" ? "users" : "all",
+    limit:
+      Number.isInteger(limit) && limit >= 1 && limit <= 100
+        ? limit
+        : DEFAULT_LIMIT,
   };
-  kpis: {
-    total_searches: number;
-    answered_rate: number;
-    not_found_rate: number;
-    escalated_verification_rate: number;
-    technical_error_rate: number;
-    clarification_requested_rate: number;
-    escalated_human_rate: number;
-    pending_rate: number;
-    human_handoff_offered_rate: number;
-    avg_latency_ms: number;
-  };
-  top_searches: AnalyticsTopic[];
-  knowledge_gaps: AnalyticsTopic[];
 }
 
 async function getDashboardAnalytics(
-  clientId?: string
+  query: DashboardQuery
 ): Promise<DashboardAnalytics> {
-  const url = new URL(
-    `${BACKEND_BASE_URL}/api/analytics/dashboard`
-  );
+  // The API key decides the client, so no client_id is sent.
+  const url = new URL(ANALYTICS_DASHBOARD_ENDPOINT);
 
-  if (clientId) {
-    url.searchParams.set("client_id", clientId);
+  if (query.dateFrom) {
+    url.searchParams.set("date_from", `${query.dateFrom}T00:00:00Z`);
   }
+  if (query.dateTo) {
+    url.searchParams.set("date_to", `${query.dateTo}T23:59:59Z`);
+  }
+  url.searchParams.set("traffic", query.traffic);
+  url.searchParams.set("limit", String(query.limit));
 
   const response = await fetch(url.toString(), {
     method: "GET",
@@ -71,8 +95,8 @@ function formatRate(value: number): string {
     .replace(/\.?0+$/, "")}%`;
 }
 
-function formatLatency(value: number): string {
-  if (!Number.isFinite(value)) {
+function formatLatency(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
     return "—";
   }
 
@@ -98,7 +122,96 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-export default async function ReportsPage() {
+function ListTable({
+  title,
+  subtitle,
+  items,
+  emptyText,
+}: {
+  title: string;
+  subtitle: string;
+  items: AnalyticsItem[];
+  emptyText: string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border">
+      <div className="border-b border-border bg-panelAlt px-4 py-3">
+        <h2 className="text-sm font-semibold text-textPrimary">{title}</h2>
+
+        <p className="mt-1 text-xs text-textMuted">{subtitle}</p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-panelAlt/50 text-textMuted">
+            <tr>
+              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Category</th>
+              <th className="px-4 py-3 font-medium">Group</th>
+              <th className="px-4 py-3 text-right font-medium">Count</th>
+              <th className="px-4 py-3 text-right font-medium">Chats</th>
+              <th className="px-4 py-3 text-right font-medium">Share</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {items.length > 0 ? (
+              items.map((item, index) => (
+                <tr
+                  key={`${item.name}-${item.kind}-${index}`}
+                  className="border-t border-border"
+                >
+                  <td
+                    dir="auto"
+                    style={{ textAlign: "start" }}
+                    className="px-4 py-3 text-textPrimary"
+                  >
+                    {item.name}
+                  </td>
+
+                  <td className="px-4 py-3 text-textMuted">
+                    {item.category ?? "—"}
+                  </td>
+
+                  <td
+                    dir="auto"
+                    style={{ textAlign: "start" }}
+                    className="px-4 py-3 text-textMuted"
+                  >
+                    {item.group ?? "—"}
+                  </td>
+
+                  <td className="px-4 py-3 text-right text-textPrimary">
+                    {item.count.toLocaleString("en-US")}
+                  </td>
+
+                  <td className="px-4 py-3 text-right text-textMuted">
+                    {item.conversations.toLocaleString("en-US")}
+                  </td>
+
+                  <td className="px-4 py-3 text-right text-textMuted">
+                    {formatRate(item.percentage)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-6 text-center text-textMuted"
+                >
+                  {emptyText}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = token ? await verifySession(token) : null;
@@ -107,106 +220,189 @@ export default async function ReportsPage() {
     redirect("/login");
   }
 
-  if (session.role !== "admin" && session.role !== "it") {
+  // Reports are only for the IT role.
+  if (session.role !== "it") {
     redirect("/");
   }
+
+  const query = parseQuery((await searchParams) ?? {});
 
   let analytics: DashboardAnalytics | null = null;
   let errorMessage: string | null = null;
 
   try {
-    analytics = await getDashboardAnalytics(
-      session.client_id
-        ? String(session.client_id)
-        : undefined
-    );
+    analytics = await getDashboardAnalytics(query);
   } catch (error) {
-    console.error(
-      "[Reports] Failed to fetch dashboard analytics:",
-      error
-    );
+    console.error("[Reports] Failed to fetch dashboard analytics:", error);
 
     errorMessage =
       "Unable to load reports. Please check the analytics backend and try again.";
   }
 
-  const kpis = analytics?.kpis;
+  const summary = analytics?.performance_summary;
 
   const metrics = [
     {
       label: "Total Searches",
-      value: kpis
-        ? kpis.total_searches.toLocaleString("en-US")
-        : "—",
+      hint: "Search turns in the period",
+      value: summary ? summary.total_searches.toLocaleString("en-US") : "—",
     },
     {
-      label: "Answered Rate",
-      value: kpis ? formatRate(kpis.answered_rate) : "—",
+      label: "Accuracy Rate",
+      hint: "Answered + menu offered + unavailable reported",
+      value: summary ? formatRate(summary.accuracy_rate) : "—",
     },
     {
-      label: "Not-Found Rate",
-      value: kpis ? formatRate(kpis.not_found_rate) : "—",
+      label: "Knowledge Gap Rate",
+      hint: "Asked for something not in the catalogue",
+      value: summary ? formatRate(summary.knowledge_gap_rate) : "—",
+    },
+    {
+      label: "AI Error Rate",
+      hint: "Unanswered + technical error + verification failed",
+      value: summary ? formatRate(summary.ai_error_rate) : "—",
+    },
+    {
+      label: "Entity Coverage",
+      hint: "Searches with an identified item or term",
+      value: summary ? formatRate(summary.entity_coverage_rate) : "—",
     },
     {
       label: "Avg Latency",
-      value: kpis
-        ? formatLatency(kpis.avg_latency_ms)
-        : "—",
+      hint: "Average reply time",
+      value: summary ? formatLatency(summary.avg_latency_ms) : "—",
     },
     {
-      label: "Verification Escalations",
-      value: kpis
-        ? formatRate(kpis.escalated_verification_rate)
-        : "—",
-    },
-    {
-      label: "Technical Errors",
-      value: kpis
-        ? formatRate(kpis.technical_error_rate)
-        : "—",
-    },
-    {
-      label: "Clarification Requested",
-      value: kpis
-        ? formatRate(kpis.clarification_requested_rate)
-        : "—",
-    },
-    {
-      label: "Human Handoff Offered",
-      value: kpis
-        ? formatRate(kpis.human_handoff_offered_rate)
-        : "—",
+      label: "P95 Latency",
+      hint: "95% of replies are faster than this",
+      value: summary ? formatLatency(summary.p95_latency_ms) : "—",
     },
   ];
 
+  const breakdown = summary
+    ? [
+        { label: "Answered", value: summary.breakdown.answered },
+        { label: "Menu Offered", value: summary.breakdown.menu_offered },
+        {
+          label: "Unavailable Reported",
+          value: summary.breakdown.unavailable_reported,
+        },
+        { label: "Knowledge Gap", value: summary.breakdown.knowledge_gap },
+        {
+          label: "Existing Item Unanswered",
+          value: summary.breakdown.existing_item_unanswered,
+        },
+        { label: "Technical Error", value: summary.breakdown.technical_error },
+        {
+          label: "Verification Failed",
+          value: summary.breakdown.verification_failed,
+        },
+      ]
+    : [];
+
+  const historyAgents = listAgents().map((a) => ({
+    user_id: a.user_id,
+    username: a.username,
+    displayName: a.displayName,
+  }));
+
   return (
     <main className="flex min-h-screen flex-col bg-surface">
-      <AppNav
-        userName={session.name}
-        role={session.role}
-      />
+      <AppNav userName={session.name} role={session.role} />
 
       <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
-        <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-textPrimary">
               Reports
             </h1>
 
             <p className="mt-1 text-sm text-textMuted">
-              Analytics overview and search performance
+              AI accuracy overview and search performance
             </p>
           </div>
 
           {analytics && (
             <p className="text-sm text-textMuted">
-              Period:{" "}
-              {formatDate(analytics.period.period_from)}
+              Period: {formatDate(analytics.period.period_from)}
               {" – "}
-              {formatDate(analytics.period.period_to)}
+              {formatDate(analytics.period.period_to)} (UTC)
             </p>
           )}
         </div>
+
+        {/* Filters */}
+        <form
+          method="get"
+          action="/reports"
+          className="mb-8 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-panel p-4 sm:grid-cols-3 lg:grid-cols-6"
+        >
+          <div>
+            <label className="mb-1 block text-xs text-textMuted">From</label>
+            <input
+              type="date"
+              name="date_from"
+              defaultValue={query.dateFrom}
+              className="w-full rounded-lg border border-border bg-panelAlt px-3 py-2 text-sm text-textPrimary outline-none focus:border-accent"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-textMuted">To</label>
+            <input
+              type="date"
+              name="date_to"
+              defaultValue={query.dateTo}
+              className="w-full rounded-lg border border-border bg-panelAlt px-3 py-2 text-sm text-textPrimary outline-none focus:border-accent"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-textMuted">
+              Traffic
+            </label>
+            <select
+              name="traffic"
+              defaultValue={query.traffic}
+              className="w-full rounded-lg border border-border bg-panelAlt px-3 py-2 text-sm text-textPrimary outline-none focus:border-accent"
+            >
+              <option value="all">All turns</option>
+              <option value="users">Real users only</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-textMuted">
+              List length
+            </label>
+            <input
+              type="number"
+              name="limit"
+              min={1}
+              max={100}
+              defaultValue={query.limit}
+              className="w-full rounded-lg border border-border bg-panelAlt px-3 py-2 text-sm text-textPrimary outline-none focus:border-accent"
+            />
+          </div>
+
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accentHover"
+            >
+              Apply
+            </button>
+          </div>
+
+          <div className="flex items-end">
+            <a
+              href="/reports"
+              className="w-full rounded-lg border border-border bg-panel px-4 py-2 text-center text-sm text-textPrimary transition-colors hover:bg-panelAlt"
+            >
+              Reset
+            </a>
+          </div>
+        </form>
 
         {errorMessage ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6">
@@ -214,14 +410,12 @@ export default async function ReportsPage() {
               Reports unavailable
             </h2>
 
-            <p className="mt-2 text-sm text-textMuted">
-              {errorMessage}
-            </p>
+            <p className="mt-2 text-sm text-textMuted">{errorMessage}</p>
           </div>
-        ) : analytics && kpis ? (
+        ) : analytics && summary ? (
           <>
             {/* KPI cards */}
-            <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
               {metrics.map((metric) => (
                 <div
                   key={metric.label}
@@ -234,167 +428,60 @@ export default async function ReportsPage() {
                   <p className="mt-2 break-words text-xl font-semibold text-textPrimary sm:text-2xl">
                     {metric.value}
                   </p>
+
+                  <p className="mt-1 text-xs text-textMuted">{metric.hint}</p>
                 </div>
               ))}
             </div>
 
-            {/* Conversation outcomes */}
+            {/* Breakdown */}
             <section className="mb-8 rounded-2xl border border-border bg-panel p-5">
               <h2 className="mb-4 text-base font-semibold text-textPrimary">
-                Conversation Outcomes
+                Search Outcomes
               </h2>
 
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                {[
-                  {
-                    label: "Human Escalated",
-                    value: kpis.escalated_human_rate,
-                  },
-                  {
-                    label: "Pending",
-                    value: kpis.pending_rate,
-                  },
-                  {
-                    label: "Verification Escalated",
-                    value: kpis.escalated_verification_rate,
-                  },
-                  {
-                    label: "Clarification Requested",
-                    value: kpis.clarification_requested_rate,
-                  },
-                  {
-                    label: "Technical Errors",
-                    value: kpis.technical_error_rate,
-                  },
-                ].map((item) => (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
+                {breakdown.map((item) => (
                   <div key={item.label}>
-                    <p className="text-xs text-textMuted">
-                      {item.label}
-                    </p>
+                    <p className="text-xs text-textMuted">{item.label}</p>
 
                     <p className="mt-2 text-lg font-semibold text-textPrimary">
-                      {formatRate(item.value)}
+                      {item.value.toLocaleString("en-US")}
                     </p>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Search tables */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* Top searches */}
-              <section className="overflow-hidden rounded-2xl border border-border">
-                <div className="border-b border-border bg-panelAlt px-4 py-3">
-                  <h2 className="text-sm font-semibold text-textPrimary">
-                    Top Searches
-                  </h2>
+            {/* Lists */}
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <ListTable
+                title="Top Searches"
+                subtitle="Items users searched for most"
+                items={analytics.top_searches}
+                emptyText="No search data available."
+              />
 
-                  <p className="mt-1 text-xs text-textMuted">
-                    Most frequently searched topics
-                  </p>
-                </div>
+              <ListTable
+                title="Knowledge Gaps"
+                subtitle="Terms that are not in the catalogue"
+                items={analytics.knowledge_gaps}
+                emptyText="No knowledge gaps found."
+              />
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-panelAlt/50 text-textMuted">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">
-                          Topic
-                        </th>
+              <ListTable
+                title="Unavailable Services"
+                subtitle="In the catalogue but offered at no branch"
+                items={analytics.unavailable_services}
+                emptyText="No unavailable services found."
+              />
 
-                        <th className="px-4 py-3 text-right font-medium">
-                          Count
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {analytics.top_searches.length > 0 ? (
-                        analytics.top_searches.map((item, index) => (
-                          <tr
-                            key={`${item.topic}-${index}`}
-                            className="border-t border-border"
-                          >
-                            <td className="px-4 py-3 text-textPrimary">
-                              {item.topic}
-                            </td>
-
-                            <td className="px-4 py-3 text-right text-textMuted">
-                              {item.count.toLocaleString("en-US")}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan={2}
-                            className="px-4 py-6 text-center text-textMuted"
-                          >
-                            No search data available.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              {/* Knowledge gaps */}
-              <section className="overflow-hidden rounded-2xl border border-border">
-                <div className="border-b border-border bg-panelAlt px-4 py-3">
-                  <h2 className="text-sm font-semibold text-textPrimary">
-                    Knowledge Gaps (Not Found)
-                  </h2>
-
-                  <p className="mt-1 text-xs text-textMuted">
-                    Topics the system could not answer
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-panelAlt/50 text-textMuted">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">
-                          Topic
-                        </th>
-
-                        <th className="px-4 py-3 text-right font-medium">
-                          Count
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {analytics.knowledge_gaps.length > 0 ? (
-                        analytics.knowledge_gaps.map((item, index) => (
-                          <tr
-                            key={`${item.topic}-${index}`}
-                            className="border-t border-border"
-                          >
-                            <td className="px-4 py-3 text-textPrimary">
-                              {item.topic}
-                            </td>
-
-                            <td className="px-4 py-3 text-right text-textMuted">
-                              {item.count.toLocaleString("en-US")}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan={2}
-                            className="px-4 py-6 text-center text-textMuted"
-                          >
-                            No knowledge gaps found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+              <ListTable
+                title="AI Errors"
+                subtitle="Catalogue items the bot failed to answer"
+                items={analytics.ai_errors}
+                emptyText="No AI errors found."
+              />
             </div>
           </>
         ) : (
@@ -402,6 +489,8 @@ export default async function ReportsPage() {
             No analytics data is available.
           </div>
         )}
+
+        <UserHistory agents={historyAgents} />
       </div>
     </main>
   );
